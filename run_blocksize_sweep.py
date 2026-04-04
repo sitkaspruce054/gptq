@@ -28,10 +28,15 @@ def parse_perplexities(stdout):
                     continue
                 if re.match(r'^\d+\.\d+$', candidate):
                     ppls[line] = float(candidate)
-                else:
-                    print(f'WARNING: expected float after "{line}", got: {candidate!r}', file=sys.stderr)
+                    break
+                if candidate in DATASETS:
+                    print(f'WARNING: no float found after "{line}"', file=sys.stderr)
                     ppls[line] = None
-                break
+                    break
+            else:
+                if line not in ppls:
+                    print(f'WARNING: no float found after "{line}"', file=sys.stderr)
+                    ppls[line] = None
     return ppls
 
 

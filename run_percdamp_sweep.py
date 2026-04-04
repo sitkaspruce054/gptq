@@ -23,17 +23,21 @@ def parse_perplexities(stdout):
     for i, line in enumerate(lines):
         line = line.strip()
         if line in DATASETS:
-            # find next non-empty line and check if it's a float
             for j in range(i + 1, len(lines)):
                 candidate = lines[j].strip()
                 if candidate == '':
                     continue
                 if re.match(r'^\d+\.\d+$', candidate):
                     ppls[line] = float(candidate)
-                else:
-                    print(f'WARNING: expected float after "{line}", got: {candidate!r}', file=sys.stderr)
+                    break
+                if candidate in DATASETS:
+                    print(f'WARNING: no float found after "{line}"', file=sys.stderr)
                     ppls[line] = None
-                break
+                    break
+            else:
+                if line not in ppls:
+                    print(f'WARNING: no float found after "{line}"', file=sys.stderr)
+                    ppls[line] = None
     return ppls
 
 
