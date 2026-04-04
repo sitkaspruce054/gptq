@@ -58,7 +58,8 @@ def get_c4(nsamples, seed, seqlen, model):
         data_files={
             'train': 'en/c4-train.00000-of-01024.json.gz',
             'validation': 'en/c4-validation.00000-of-00008.json.gz'
-        }
+        },
+        verification_mode='no_checks'
     )
     traindata = c4data['train']
     valdata = c4data['validation']
@@ -131,7 +132,8 @@ def get_c4_new(nsamples, seed, seqlen, model):
         data_files={
             'train': 'en/c4-train.00000-of-01024.json.gz',
             'validation': 'en/c4-validation.00000-of-00008.json.gz'
-        }
+        },
+        verification_mode='no_checks'
     )
     traindata = c4data['train']
     valdata = c4data['validation']
