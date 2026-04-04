@@ -53,12 +53,15 @@ def get_ptb(nsamples, seed, seqlen, model):
 
 def get_c4(nsamples, seed, seqlen, model):
     from datasets import load_dataset
-    traindata = load_dataset(
-        'allenai/c4', 'en', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train'
+    c4data = load_dataset(
+        'allenai/c4', 'en',
+        data_files={
+            'train': 'en/c4-train.00000-of-01024.json.gz',
+            'validation': 'en/c4-validation.00000-of-00008.json.gz'
+        }
     )
-    valdata = load_dataset(
-        'allenai/c4', 'en', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation'
-    )
+    traindata = c4data['train']
+    valdata = c4data['validation']
 
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
@@ -123,12 +126,15 @@ def get_ptb_new(nsamples, seed, seqlen, model):
 
 def get_c4_new(nsamples, seed, seqlen, model):
     from datasets import load_dataset
-    traindata = load_dataset(
-        'allenai/c4', 'en', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train'
+    c4data = load_dataset(
+        'allenai/c4', 'en',
+        data_files={
+            'train': 'en/c4-train.00000-of-01024.json.gz',
+            'validation': 'en/c4-validation.00000-of-00008.json.gz'
+        }
     )
-    valdata = load_dataset(
-        'allenai/c4', 'en', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation'
-    )
+    traindata = c4data['train']
+    valdata = c4data['validation']
 
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
