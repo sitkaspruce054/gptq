@@ -1,0 +1,99 @@
+"""Experiment 1: percdamp sweep for facebook/opt-125m."""
+
+import argparse
+import csv
+import re
+import subprocess
+import sys
+import time
+
+SWEEP_VALUES = [0.0001, 0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.5]
+DATASETS = ['wikitext2', 'ptb', 'c4']
+
+
+def nvidia_smi():
+    result = subprocess.run(['nvidia-smi'], capture_output=True, text=True)
+    print(result.stdout if result.returncode == 0 else '(nvidia-smi unavailable)')
+
+
+def parse_perplexities(stdout):
+    """Return dict with wikitext2, ptb, c4 perplexity floats (or None)."""
+    lines = stdout.splitlines()
+    ppls = {}
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if line in DATASETS:
+            # find next non-empty line and check if it's a float
+            for j in range(i + 1, len(lines)):
+                candidate = lines[j].strip()
+                if candidate == '':
+                    continue
+                if re.match(r'^\d+\.\d+$', candidate):
+                    ppls[line] = float(candidate)
+                else:
+                    print(f'WARNING: expected float after "{line}", got: {candidate!r}', file=sys.stderr)
+                    ppls[line] = None
+                break
+    return ppls
+
+
+def run_opt(model, extra_args):
+    cmd = [
+        'python', 'opt.py',
+        model, 'wikitext2',
+        '--wbits', '4',
+        '--nsamples', '128',
+        '--seed', '0',
+    ] + extra_args
+    t0 = time.time()
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    elapsed = time.time() - t0
+    if result.returncode != 0:
+        print(f'ERROR (exit {result.returncode}):\n{result.stderr}', file=sys.stderr)
+        return None, None, None, elapsed
+    ppls = parse_perplexities(result.stdout)
+    return ppls.get('wikitext2'), ppls.get('ptb'), ppls.get('c4'), elapsed
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', default='facebook/opt-125m')
+    parser.add_argument('--output', default='results_percdamp.csv')
+    args = parser.parse_args()
+
+    rows = []
+
+    print('=== GPU status before sweep ===')
+    nvidia_smi()
+
+    # RTN baseline (--nearest, no percdamp)
+    print('\n--- RTN baseline ---')
+    w2, ptb, c4, rt = run_opt(args.model, ['--nearest'])
+    rows.append({'percdamp': 'null', 'wikitext2_ppl': w2, 'ptb_ppl': ptb, 'c4_ppl': c4, 'runtime_sec': f'{rt:.1f}'})
+    print(f'  wikitext2={w2}  ptb={ptb}  c4={c4}  time={rt:.1f}s')
+    nvidia_smi()
+
+    for pd in SWEEP_VALUES:
+        print(f'\n--- percdamp={pd} ---')
+        w2, ptb, c4, rt = run_opt(args.model, ['--percdamp', str(pd)])
+        rows.append({'percdamp': pd, 'wikitext2_ppl': w2, 'ptb_ppl': ptb, 'c4_ppl': c4, 'runtime_sec': f'{rt:.1f}'})
+        print(f'  wikitext2={w2}  ptb={ptb}  c4={c4}  time={rt:.1f}s')
+        nvidia_smi()
+
+    # Write CSV
+    with open(args.output, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['percdamp', 'wikitext2_ppl', 'ptb_ppl', 'c4_ppl', 'runtime_sec'])
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f'\nResults written to {args.output}')
+
+    # Summary table
+    print('\n=== Summary ===')
+    print(f'{"percdamp":>10}  {"wikitext2":>10}  {"ptb":>10}  {"c4":>10}  {"time(s)":>8}')
+    print('-' * 56)
+    for r in rows:
+        print(f'{str(r["percdamp"]):>10}  {str(r["wikitext2_ppl"]):>10}  {str(r["ptb_ppl"]):>10}  {str(r["c4_ppl"]):>10}  {r["runtime_sec"]:>8}')
+
+
+if __name__ == '__main__':
+    main()

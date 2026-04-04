@@ -83,7 +83,7 @@ def opt_sequential(model, dataloader, dev):
             gptq[name] = GPTQ(subset[name])
             gptq[name].quantizer = Quantizer()
             gptq[name].quantizer.configure(
-                args.wbits, perchannel=True, sym=args.sym, mse=False, trits=args.trits
+                args.wbits, perchannel=True, sym=args.sym, mse=args.mse, trits=args.trits
             )
 
         def add_batch(name):
@@ -102,7 +102,7 @@ def opt_sequential(model, dataloader, dev):
             print(i, name)
             print('Quantizing ...')
             gptq[name].fasterquant(
-                percdamp=args.percdamp, groupsize=args.groupsize, actorder=args.act_order, static_groups=args.static_groups
+                percdamp=args.percdamp, groupsize=args.groupsize, actorder=args.act_order, static_groups=args.static_groups, blocksize=args.blocksize
             )
             quantizers['model.decoder.layers.%d.%s' % (i, name)] = gptq[name].quantizer
             gptq[name].free()
@@ -431,6 +431,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--static-groups', action='store_true',
         help='Whether to use static groups; recommended when using `--actorder` for more efficient inference.'
+    )
+    parser.add_argument(
+        '--blocksize', type=int, default=128,
+        help='Block size for the GPTQ lazy update. Default is 128 (paper default).'
+    )
+    parser.add_argument(
+        '--mse', action='store_true',
+        help='Use MSE-optimal clipping for quantizer scale search instead of min-max.'
     )
 
     args = parser.parse_args()
