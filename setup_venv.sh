@@ -4,14 +4,14 @@
 # Usage:
 #   module load CUDA/12.1.1
 #   bash setup_venv.sh
-#   source $SCRATCH/gptq-env-311/bin/activate
+#   source $SHARED_SCRATCH/gptq-env-311/bin/activate
 #
 # After activation, run:
 #   python run_quant_comparison.py --model TinyLlama-1.1B-Chat-v1.0
 
 set -uo pipefail
 
-VENV="${SCRATCH}/gptq-env-311"
+VENV="${SHARED_SCRATCH}/gptq-env-311"
 GPTQMODEL_DIR="${HOME}/gptq/GPTQModel"
 PY="$VENV/bin/python"
 PIP="$VENV/bin/pip"
