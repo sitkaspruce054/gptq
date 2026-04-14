@@ -74,10 +74,12 @@ def opt_sequential(model, dataloader, dev):
     print('Ready.')
 
     profile_rows = [] if getattr(args, 'profile', False) else None
+    layer_bits_list = [int(b) for b in args.layer_bits.split(',')] if args.layer_bits else []
 
     quantizers = {}
     for i in range(len(layers)):
         layer = layers[i].to(dev)
+        wbits_i = layer_bits_list[i] if i < len(layer_bits_list) else args.wbits
 
         subset = find_layers(layer)
         gptq = {}
@@ -85,7 +87,7 @@ def opt_sequential(model, dataloader, dev):
             gptq[name] = GPTQ(subset[name])
             gptq[name].quantizer = Quantizer()
             gptq[name].quantizer.configure(
-                args.wbits, perchannel=True, sym=args.sym, mse=args.mse, trits=args.trits
+                wbits_i, perchannel=True, sym=args.sym, mse=args.mse, trits=args.trits
             )
 
         def add_batch(name):
@@ -479,6 +481,11 @@ if __name__ == '__main__':
         help='Use MSE-optimal clipping for quantizer scale search instead of min-max.'
     )
     parser.add_argument(
+        '--layer-bits', type=str, default='',
+        help='Comma-separated per-layer bit widths, one per decoder layer. '
+             'Overrides --wbits on a per-layer basis when set.'
+    )
+    parser.add_argument(
         '--profile', action='store_true',
         help='Log per-sublayer runtime and peak GPU memory during quantization.'
     )
@@ -499,7 +506,7 @@ if __name__ == '__main__':
         args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen
     )
 
-    if args.wbits < 16 and not args.nearest:
+    if (args.wbits < 16 or bool(args.layer_bits)) and not args.nearest:
         tick = time.time()
         quantizers = opt_sequential(model, dataloader, DEV)
         print(time.time() - tick)
