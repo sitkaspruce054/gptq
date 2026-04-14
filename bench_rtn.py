@@ -39,7 +39,7 @@ def main():
     args = parser.parse_args()
 
     cmd = [
-        'python', 'llama.py', args.model, 'wikitext2',
+        sys.executable, 'llama.py', args.model, 'wikitext2',
         '--wbits', '4', '--nearest', '--seed', '0',
     ]
     t0 = time.time()

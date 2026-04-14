@@ -39,7 +39,7 @@ def main():
     args = parser.parse_args()
 
     cmd = [
-        'python', 'llama.py', args.model, 'wikitext2',
+        sys.executable, 'llama.py', args.model, 'wikitext2',
         '--wbits', '4', '--percdamp', '0.01',
         '--nsamples', '128', '--seed', '0',
     ]

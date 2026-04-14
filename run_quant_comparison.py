@@ -114,15 +114,15 @@ def main():
     missing_deps = check_deps()
 
     METHODS = {
-        'fp16':           ['python', 'bench_fp16.py',       '--model', args.model],
-        'rtn_4bit':       ['python', 'bench_rtn.py',        '--model', args.model],
-        'gptq_4bit':      ['python', 'bench_gptq.py',       '--model', args.model],
-        'bnb_nf4':        ['python', 'bench_bnb.py',        '--model', args.model, '--mode', 'nf4'],
-        'bnb_int8':       ['python', 'bench_bnb.py',        '--model', args.model, '--mode', 'int8'],
-        'awq_4bit':       ['python', 'bench_awq.py',        '--model', args.model],
-        'gptqmodel_gptq': ['python', 'bench_gptqmodel.py', '--model', args.model, '--method', 'gptq'],
-        'gptqmodel_awq':  ['python', 'bench_gptqmodel.py', '--model', args.model, '--method', 'awq'],
-        'gptqmodel_rtn':  ['python', 'bench_gptqmodel.py', '--model', args.model, '--method', 'rtn'],
+        'fp16':           [sys.executable, 'bench_fp16.py',       '--model', args.model],
+        'rtn_4bit':       [sys.executable, 'bench_rtn.py',        '--model', args.model],
+        'gptq_4bit':      [sys.executable, 'bench_gptq.py',       '--model', args.model],
+        'bnb_nf4':        [sys.executable, 'bench_bnb.py',        '--model', args.model, '--mode', 'nf4'],
+        'bnb_int8':       [sys.executable, 'bench_bnb.py',        '--model', args.model, '--mode', 'int8'],
+        'awq_4bit':       [sys.executable, 'bench_awq.py',        '--model', args.model],
+        'gptqmodel_gptq': [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'gptq'],
+        'gptqmodel_awq':  [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'awq'],
+        'gptqmodel_rtn':  [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'rtn'],
     }
 
     # Skip methods whose deps are missing
