@@ -16,6 +16,9 @@ GPTQMODEL_DIR="${HOME}/gptq/GPTQModel"
 PY="$VENV/bin/python"
 PIP="$VENV/bin/pip"
 
+# Keep pip's wheel cache off the home partition (10 GB quota)
+export PIP_CACHE_DIR="${SHARED_SCRATCH}/pip-cache"
+
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[setup]${NC} $*"; }
 warn() { echo -e "${YELLOW}[ warn]${NC} $*"; }
