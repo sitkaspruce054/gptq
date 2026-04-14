@@ -56,11 +56,20 @@ def main():
         sys.exit(1)
 
     ppls = parse_perplexities(result.stdout)
+    peak_mb = None
+    for line in result.stdout.splitlines():
+        parts = line.strip().split()
+        if len(parts) == 2 and parts[0] == 'peak_memory_mb':
+            try:
+                peak_mb = float(parts[1])
+            except ValueError:
+                pass
     for ds in DATASETS:
         val = ppls.get(ds)
         print(f'{ds} {val if val is not None else "null"}')
     print('avg_bits 4.0')
     print(f'runtime_sec {elapsed:.2f}')
+    print(f'peak_memory_mb {peak_mb if peak_mb is not None else "null"}')
 
 
 if __name__ == '__main__':

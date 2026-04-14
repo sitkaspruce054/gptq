@@ -73,7 +73,10 @@ def load_model(mode, model_name):
             model_name, quantization_config=bnb_config
         )
     else:  # int8
-        model = AutoModelForCausalLM.from_pretrained(model_name, load_in_8bit=True)
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, quantization_config=bnb_config
+        )
 
     return model
 
@@ -108,6 +111,7 @@ def main():
         print(f'runtime_sec {time.time() - t0:.2f}')
         sys.exit(1)
 
+    torch.cuda.reset_peak_memory_stats(dev)
     ppls = {}
     for ds in DATASETS:
         try:
@@ -117,6 +121,7 @@ def main():
             print(f'WARNING: {ds} eval failed: {e}', file=sys.stderr)
             ppls[ds] = None
 
+    peak_mb = torch.cuda.max_memory_allocated(dev) / 1e6
     elapsed = time.time() - t0
 
     for ds in DATASETS:
@@ -124,6 +129,7 @@ def main():
         print(f'{ds} {val if val is not None else "null"}')
     print(f'avg_bits {avg_bits}')
     print(f'runtime_sec {elapsed:.2f}')
+    print(f'peak_memory_mb {peak_mb:.0f}')
 
 
 if __name__ == '__main__':

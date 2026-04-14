@@ -131,6 +131,7 @@ def main():
     # model.model is the underlying HF CausalLM with AWQ-quantized linear layers
     hf_model = model.model
 
+    torch.cuda.reset_peak_memory_stats(dev)
     ppls = {}
     for ds in DATASETS:
         try:
@@ -140,6 +141,7 @@ def main():
             print(f'WARNING: {ds} eval failed: {e}', file=sys.stderr)
             ppls[ds] = None
 
+    peak_mb = torch.cuda.max_memory_allocated(dev) / 1e6
     elapsed = time.time() - t0
 
     for ds in DATASETS:
@@ -147,6 +149,7 @@ def main():
         print(f'{ds} {val if val is not None else "null"}')
     print('avg_bits 4.0')
     print(f'runtime_sec {elapsed:.2f}')
+    print(f'peak_memory_mb {peak_mb:.0f}')
 
 
 if __name__ == '__main__':

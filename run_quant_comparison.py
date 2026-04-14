@@ -162,7 +162,7 @@ def main():
     header = (
         f'{"Method":<14} | {"Avg bits":>8} | {"Calib":>6} | '
         f'{"wikitext2 PPL":>{col_w}} | {"ptb PPL":>{col_w}} | '
-        f'{"c4 PPL":>{col_w}} | {"Runtime (s)":>{col_w}}'
+        f'{"c4 PPL":>{col_w}} | {"Runtime (s)":>{col_w}} | {"Peak mem (MB)":>{col_w}}'
     )
     sep = '-' * len(header)
     print('\n=== Benchmark Results ===')
@@ -183,10 +183,12 @@ def main():
         ptb_s = 'skipped' if ptb == 'skipped' else (f'{ptb:.2f}' if ptb is not None else 'null')
         c4_s = 'skipped' if c4 == 'skipped' else (f'{c4:.2f}' if c4 is not None else 'null')
         rt_s = f'{rt:.1f}' if rt is not None else 'n/a'
+        peak_mb = res.get('peak_memory_mb')
+        peak_mb_s = 'skipped' if w2 == 'skipped' else (f'{peak_mb:.0f}' if peak_mb is not None else 'null')
 
         print(
             f'{name:<14} | {avg_bits_str:>8} | {calib:>6} | '
-            f'{w2_s:>{col_w}} | {ptb_s:>{col_w}} | {c4_s:>{col_w}} | {rt_s:>{col_w}}'
+            f'{w2_s:>{col_w}} | {ptb_s:>{col_w}} | {c4_s:>{col_w}} | {rt_s:>{col_w}} | {peak_mb_s:>{col_w}}'
         )
 
         rows.append({
@@ -197,6 +199,7 @@ def main():
             'ptb_ppl': ptb_s,
             'c4_ppl': c4_s,
             'runtime_sec': rt_s,
+            'peak_memory_mb': peak_mb_s,
         })
 
     print(sep)
@@ -207,7 +210,7 @@ def main():
 
     # --- Write CSV ---
     with open(args.output, 'w', newline='') as f:
-        fieldnames = ['method', 'avg_bits', 'calibration', 'wikitext2_ppl', 'ptb_ppl', 'c4_ppl', 'runtime_sec']
+        fieldnames = ['method', 'avg_bits', 'calibration', 'wikitext2_ppl', 'ptb_ppl', 'c4_ppl', 'runtime_sec', 'peak_memory_mb']
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
