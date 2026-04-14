@@ -42,7 +42,7 @@ def parse_perplexities(stdout):
 
 def run_opt(model, blocksize):
     cmd = [
-        'python', 'opt.py',
+        sys.executable, 'opt.py',
         model, 'wikitext2',
         '--wbits', '4',
         '--nsamples', '128',
