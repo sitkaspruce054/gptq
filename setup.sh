@@ -81,8 +81,13 @@ fi
 # datasets:    wikitext2, ptb, c4 loading
 # sentencepiece: tokenizer backend for OPT/LLaMA models
 # accelerate:  HuggingFace model dispatch utilities
+# transformers: pin to <5.0.0 — transformers 5.x broke OPTForCausalLM.from_pretrained
+# in _load_pretrained_model; LlamaForCausalLM (bench scripts) was unaffected.
+# Side effect: transformers 4.46.x requires huggingface_hub<1.0, which downgrades
+# huggingface-hub from 1.x. If datasets requires huggingface-hub>=1.0, loading
+# wikitext2/ptb/c4 will fail — in that case, load the model from a local path instead.
 log "Installing numpy, transformers, datasets, sentencepiece, accelerate ..."
-"$PIP" install numpy transformers datasets sentencepiece accelerate --quiet
+"$PIP" install numpy 'transformers>=4.35.0,<5.0.0' datasets sentencepiece accelerate --quiet
 
 CORE_ERR=0
 for PKG in numpy transformers datasets sentencepiece accelerate; do

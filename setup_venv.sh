@@ -7,7 +7,7 @@
 #   source $SHARED_SCRATCH/gptq-env-311/bin/activate
 #
 # After activation, run:
-#   python run_quant_comparison.py --model TinyLlama-1.1B-Chat-v1.0
+#   python run_quant_comparison.py --model TinyLlama/TinyLlama-1.1B-Chat-v1.0
 
 set -uo pipefail
 
@@ -157,4 +157,4 @@ echo "  source $VENV/bin/activate"
 echo ""
 echo "Then run the benchmark:"
 echo "  cd ~/gptq/gptq"
-echo "  python run_quant_comparison.py --model TinyLlama-1.1B-Chat-v1.0"
+echo "  python run_quant_comparison.py --model TinyLlama/TinyLlama-1.1B-Chat-v1.0"

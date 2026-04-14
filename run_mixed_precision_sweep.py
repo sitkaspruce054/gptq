@@ -39,7 +39,7 @@ def run_opt(model, extra_args):
     if result.returncode != 0:
         print(f'  EXIT {result.returncode}', file=sys.stderr)
         if result.stderr:
-            print(result.stderr[:1000], file=sys.stderr)
+            print(result.stderr, file=sys.stderr)
     return result.stdout, result.stderr, elapsed
 
 
