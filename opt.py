@@ -73,6 +73,8 @@ def opt_sequential(model, dataloader, dev):
 
     print('Ready.')
 
+    profile_rows = [] if getattr(args, 'profile', False) else None
+
     quantizers = {}
     for i in range(len(layers)):
         layer = layers[i].to(dev)
@@ -101,9 +103,31 @@ def opt_sequential(model, dataloader, dev):
         for name in subset:
             print(i, name)
             print('Quantizing ...')
+
+            if profile_rows is not None:
+                torch.cuda.synchronize(dev)
+                torch.cuda.reset_peak_memory_stats(dev)
+                mem_before = torch.cuda.memory_allocated(dev)
+                t0 = time.time()
+
             gptq[name].fasterquant(
                 percdamp=args.percdamp, groupsize=args.groupsize, actorder=args.act_order, static_groups=args.static_groups, blocksize=args.blocksize
             )
+
+            if profile_rows is not None:
+                torch.cuda.synchronize(dev)
+                elapsed = time.time() - t0
+                mem_peak = torch.cuda.max_memory_allocated(dev)
+                mem_after = torch.cuda.memory_allocated(dev)
+                profile_rows.append({
+                    'layer': i,
+                    'sublayer': name,
+                    'runtime_sec': round(elapsed, 3),
+                    'mem_before_mb': round(mem_before / 1e6, 1),
+                    'mem_peak_mb': round(mem_peak / 1e6, 1),
+                    'mem_after_mb': round(mem_after / 1e6, 1),
+                })
+
             quantizers['model.decoder.layers.%d.%s' % (i, name)] = gptq[name].quantizer
             gptq[name].free()
         for j in range(args.nsamples):
@@ -117,7 +141,21 @@ def opt_sequential(model, dataloader, dev):
         inps, outs = outs, inps
 
     model.config.use_cache = use_cache
-    
+
+    if profile_rows is not None:
+        import csv as _csv
+        out_path = getattr(args, 'profile_output', 'results_profile.csv')
+        fields = ['layer', 'sublayer', 'runtime_sec', 'mem_before_mb', 'mem_peak_mb', 'mem_after_mb']
+        with open(out_path, 'w', newline='') as f:
+            writer = _csv.DictWriter(f, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(profile_rows)
+        print(f'\nProfile saved to {out_path}')
+        print(f'\n{"Layer":>5}  {"Sublayer":<30}  {"Runtime(s)":>10}  {"Before(MB)":>10}  {"Peak(MB)":>10}  {"After(MB)":>10}')
+        print('-' * 85)
+        for r in profile_rows:
+            print(f'{r["layer"]:>5}  {r["sublayer"]:<30}  {r["runtime_sec"]:>10.3f}  {r["mem_before_mb"]:>10.1f}  {r["mem_peak_mb"]:>10.1f}  {r["mem_after_mb"]:>10.1f}')
+
     return quantizers
 
 @torch.no_grad()
@@ -439,6 +477,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '--mse', action='store_true',
         help='Use MSE-optimal clipping for quantizer scale search instead of min-max.'
+    )
+    parser.add_argument(
+        '--profile', action='store_true',
+        help='Log per-sublayer runtime and peak GPU memory during quantization.'
+    )
+    parser.add_argument(
+        '--profile-output', type=str, default='results_profile.csv',
+        help='Path for the profile CSV (default: results_profile.csv).'
     )
 
     args = parser.parse_args()
