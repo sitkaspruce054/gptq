@@ -321,14 +321,14 @@ if __name__ == '__main__':
     datasets = ['wikitext2', 'ptb', 'c4']
     if args.new_eval:
         datasets = ['wikitext2', 'ptb-new', 'c4-new']
-    torch.cuda.reset_peak_memory_stats(DEV)
+    torch.cuda.reset_peak_memory_stats()
     for dataset in datasets:
         dataloader, testloader = get_loaders(
             dataset, seed=args.seed, model=args.model, seqlen=model.seqlen
         )
         print(dataset)
         llama_eval(model, testloader, DEV)
-    peak_mb = torch.cuda.max_memory_allocated(DEV) / 1e6
+    peak_mb = torch.cuda.max_memory_allocated() / 1e6
     print(f'peak_memory_mb {peak_mb:.0f}')
 
     if args.save:
