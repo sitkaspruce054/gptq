@@ -42,7 +42,7 @@ def parse_perplexities(stdout):
                 candidate = lines[j].strip()
                 if candidate == '':
                     continue
-                if re.match(r'^\d+', candidate):
+                if re.match(r'^\d+\.\d+', candidate):
                     try:
                         ppls[line] = float(candidate)
                     except ValueError:
