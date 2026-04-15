@@ -1,6 +1,10 @@
 """Reproduce the OPT-125M results from Table 3 (WikiText2) and Tables 9/11
 (PTB, C4) of the GPTQ paper (ICLR 2023).
 
+The paper states that GPTQ calibration uses 128 random 2048-token segments from
+the C4 dataset for all reported language-model perplexity results, so this
+script calibrates on C4 rather than WikiText2.
+
 Paper targets:
     FP16:      wikitext2=27.65  ptb=38.99  c4=26.56
     RTN  4bit: wikitext2=37.28  ptb=53.89  c4=33.91
@@ -56,7 +60,7 @@ def parse_perplexities(stdout):
 
 def run_opt(model, wbits, nearest=False):
     cmd = [
-        sys.executable, 'opt.py', model, 'wikitext2',
+        sys.executable, 'opt.py', model, 'c4',
         '--wbits', str(wbits),
         '--nsamples', '128',
         '--seed', '0',

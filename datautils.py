@@ -83,23 +83,13 @@ def get_c4(nsamples, seed, seqlen, model):
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
 
-    import random
-    random.seed(0)
-    valenc = []
-    for _ in range(256):
-        while True:
-            i = random.randint(0, len(valdata) - 1)
-            tmp = tokenizer(valdata[i]['text'], return_tensors='pt')
-            if tmp.input_ids.shape[1] >= seqlen:
-                break
-        i = random.randint(0, tmp.input_ids.shape[1] - seqlen - 1)
-        j = i + seqlen
-        valenc.append(tmp.input_ids[:, i:j])
-    valenc = torch.hstack(valenc)
+    # Match the GPTQ paper's evaluation protocol: concatenate the validation
+    # set and let opt_eval consume it in non-overlapping seqlen-sized chunks.
+    valenc = tokenizer("\n\n".join(valdata['text']), return_tensors='pt')
     class TokenizerWrapper:
         def __init__(self, input_ids):
             self.input_ids = input_ids
-    valenc = TokenizerWrapper(valenc)
+    valenc = TokenizerWrapper(valenc.input_ids)
 
     return trainloader, valenc 
 
