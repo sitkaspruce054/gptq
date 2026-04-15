@@ -31,8 +31,8 @@ def get_wikitext2(nsamples, seed, seqlen, model):
 
 def get_ptb(nsamples, seed, seqlen, model):
     from datasets import load_dataset
-    traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train', trust_remote_code=True)
-    valdata = load_dataset('ptb_text_only', 'penn_treebank', split='validation', trust_remote_code=True)
+    traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train')
+    valdata = load_dataset('ptb_text_only', 'penn_treebank', split='validation')
 
     from transformers import AutoTokenizer 
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
@@ -83,20 +83,22 @@ def get_c4(nsamples, seed, seqlen, model):
         tar[:, :-1] = -100
         trainloader.append((inp, tar))
 
-    # Match the GPTQ paper's evaluation protocol: concatenate the validation
-    # set and let opt_eval consume it in non-overlapping seqlen-sized chunks.
+    # Concatenate validation text to preserve the paper-style non-overlapping
+    # chunk evaluation pattern, but cap the token budget so opt_eval does not
+    # allocate hidden-state buffers for the entire C4 validation set at once.
     valenc = tokenizer("\n\n".join(valdata['text']), return_tensors='pt')
+    valenc = valenc.input_ids[:, :(256 * seqlen)]
     class TokenizerWrapper:
         def __init__(self, input_ids):
             self.input_ids = input_ids
-    valenc = TokenizerWrapper(valenc.input_ids)
+    valenc = TokenizerWrapper(valenc)
 
     return trainloader, valenc 
 
 def get_ptb_new(nsamples, seed, seqlen, model):
     from datasets import load_dataset
-    traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train', trust_remote_code=True)
-    testdata = load_dataset('ptb_text_only', 'penn_treebank', split='test', trust_remote_code=True)
+    traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train')
+    testdata = load_dataset('ptb_text_only', 'penn_treebank', split='test')
 
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)

@@ -68,49 +68,150 @@ def theoretical_memory(model_name):
 def checkpoint_sizes(model_name, tmpdir):
     print('\n=== 2. Checkpoint File Sizes ===')
 
+    # Import opt.py helpers directly to avoid the opt.py eval loop,
+    # which crashes on the broken PTB HuggingFace loader.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from datautils import get_loaders
+    from modelutils import find_layers
+    from quant import Quantizer, make_quant3, Quant3Linear
+    from gptq import GPTQ
+    import transformers
+
+    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def load_opt(name):
+        def skip(*args, **kwargs): pass
+        torch.nn.init.kaiming_uniform_ = skip
+        torch.nn.init.uniform_ = skip
+        torch.nn.init.normal_ = skip
+        model = transformers.OPTForCausalLM.from_pretrained(name, torch_dtype='auto')
+        model.seqlen = model.config.max_position_embeddings
+        return model
+
     results = {}
-    for label, extra_args in [
-        ('fp16',      ['--wbits', '16']),
-        ('gptq_3bit', ['--wbits', '3']),
-    ]:
-        path = os.path.join(tmpdir, f'opt125m_{label}.pt')
-        cmd = [
-            sys.executable, 'opt.py', model_name, 'c4',
-            *extra_args,
-            '--nsamples', '128', '--seed', '0',
-            '--save', path,
-        ]
-        print(f'\n  Saving {label} checkpoint...')
-        t0 = time.time()
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        elapsed = time.time() - t0
-        if result.returncode != 0:
-            print(f'  ERROR: {result.stderr[:500]}')
-            results[label] = None
-            continue
-        size_mb = os.path.getsize(path) / 1e6
-        results[label] = size_mb
-        print(f'  {label}: {size_mb:.1f} MB  (took {elapsed:.1f}s)')
+
+    # --- FP16 ---
+    print('\n  Saving fp16 checkpoint...')
+    t0 = time.time()
+    model = load_opt(model_name).eval()
+    path_fp16 = os.path.join(tmpdir, 'opt125m_fp16.pt')
+    torch.save(model.state_dict(), path_fp16)
+    size_fp16 = os.path.getsize(path_fp16) / 1e6
+    results['fp16'] = size_fp16
+    print(f'  fp16: {size_fp16:.1f} MB  (took {time.time()-t0:.1f}s)')
+    del model
+    torch.cuda.empty_cache()
+
+    # --- GPTQ 3-bit packed ---
+    print('\n  Quantizing to 3-bit and saving packed checkpoint...')
+    t0 = time.time()
+    model = load_opt(model_name).eval()
+    dataloader, _ = get_loaders('wikitext2', nsamples=128, seed=0, model=model_name, seqlen=model.seqlen)
+
+    # Run sequential quantization (mirrors opt_sequential)
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
+    layers = model.model.decoder.layers
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(dev)
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(dev)
+    layers[0] = layers[0].to(dev)
+
+    dtype = next(iter(model.parameters())).dtype
+    inps = torch.zeros((128, model.seqlen, model.config.hidden_size), dtype=dtype, device=dev)
+    cache = {'i': 0, 'attention_mask': None}
+
+    class Catcher(nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+        def forward(self, inp, **kwargs):
+            inps[cache['i']] = inp
+            cache['i'] += 1
+            cache['attention_mask'] = kwargs['attention_mask']
+            raise ValueError
+
+    layers[0] = Catcher(layers[0])
+    for batch in dataloader:
+        try:
+            model(batch[0].to(dev))
+        except ValueError:
+            pass
+    layers[0] = layers[0].module
+    layers[0] = layers[0].cpu()
+    model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.cpu()
+    model.model.decoder.embed_positions = model.model.decoder.embed_positions.cpu()
+    torch.cuda.empty_cache()
+
+    outs = torch.zeros_like(inps)
+    attention_mask = cache['attention_mask']
+    quantizers = {}
+
+    for i in range(len(layers)):
+        layer = layers[i].to(dev)
+        subset = find_layers(layer)
+        gptq = {}
+        for name in subset:
+            gptq[name] = GPTQ(subset[name])
+            gptq[name].quantizer = Quantizer()
+            gptq[name].quantizer.configure(3, perchannel=True, sym=False, mse=False)
+
+        def add_batch(name):
+            def tmp(_, inp, out):
+                gptq[name].add_batch(inp[0].data, out.data)
+            return tmp
+
+        handles = [subset[name].register_forward_hook(add_batch(name)) for name in subset]
+        for j in range(128):
+            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask)[0]
+        for h in handles:
+            h.remove()
+
+        for name in subset:
+            gptq[name].fasterquant(percdamp=0.01, groupsize=-1, actorder=False)
+            quantizers[f'model.decoder.layers.{i}.{name}'] = gptq[name].quantizer
+            gptq[name].free()
+
+        for j in range(128):
+            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask)[0]
+        layers[i] = layer.cpu()
+        del layer, gptq
+        torch.cuda.empty_cache()
+        inps, outs = outs, inps
+
+    model.config.use_cache = use_cache
+
+    # Pack to 3-bit
+    all_layers = find_layers(model)
+    all_layers = {n: all_layers[n] for n in quantizers}
+    make_quant3(model, quantizers, faster=False)
+    qlayers = find_layers(model, [Quant3Linear])
+    for name in qlayers:
+        quantizers[name] = quantizers[name].cpu()
+        qlayers[name].pack(all_layers[name], quantizers[name].scale, quantizers[name].zero)
+
+    path_3bit = os.path.join(tmpdir, 'opt125m_gptq_3bit.pt')
+    torch.save(model.state_dict(), path_3bit)
+    size_3bit = os.path.getsize(path_3bit) / 1e6
+    results['gptq_3bit'] = size_3bit
+    print(f'  gptq_3bit: {size_3bit:.1f} MB  (took {time.time()-t0:.1f}s)')
+    del model
+    torch.cuda.empty_cache()
 
     print()
     print(f'  {"Format":<12}  {"File size (MB)":>14}  {"vs FP16":>10}')
     print(f'  {"-"*40}')
-    fp16_size = results.get('fp16')
     for label, size in results.items():
-        if size is None:
-            print(f'  {label:<12}  {"error":>14}')
-        else:
-            ratio = f'{fp16_size/size:.2f}x' if fp16_size else 'n/a'
-            print(f'  {label:<12}  {size:>14.1f}  {ratio:>10}')
+        ratio = f'{size_fp16/size:.2f}x' if label != 'fp16' else '1.00x'
+        print(f'  {label:<12}  {size:>14.1f}  {ratio:>10}')
 
-    return results
+    return results, path_3bit
 
 
 # ---------------------------------------------------------------------------
 # 3. GPU inference memory
 # ---------------------------------------------------------------------------
 
-def gpu_inference_memory(model_name, dev, tmpdir):
+def gpu_inference_memory(model_name, dev, ckpt_3bit):
     print('\n=== 3. GPU Memory at Inference ===')
 
     if not torch.cuda.is_available():
@@ -142,7 +243,7 @@ def gpu_inference_memory(model_name, dev, tmpdir):
 
     # --- 3-bit packed ---
     # Need the saved checkpoint from step 2
-    ckpt = os.path.join(tmpdir, 'opt125m_gptq_3bit.pt')
+    ckpt = ckpt_3bit
     if not os.path.exists(ckpt):
         print('\n  3-bit checkpoint not found (step 2 may have failed) — skipping.')
         return results
@@ -206,8 +307,8 @@ def main():
     theoretical_memory(args.model)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpoint_sizes(args.model, tmpdir)
-        gpu_inference_memory(args.model, dev, tmpdir)
+        _, ckpt_3bit = checkpoint_sizes(args.model, tmpdir)
+        gpu_inference_memory(args.model, dev, ckpt_3bit)
 
     print('\nDone.')
 
