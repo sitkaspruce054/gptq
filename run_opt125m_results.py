@@ -72,7 +72,7 @@ def run_opt(model, wbits, nearest=False):
     if wbits == 16:
         label = 'fp16'
 
-    print(f'\n--- {label} ---')
+    print(f'\n{label}')
     print(f'cmd: {" ".join(cmd)}')
     t0 = time.time()
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -115,7 +115,7 @@ def main():
         label, ppls, elapsed = run_opt(args.model, wbits, nearest)
         all_results[label] = {'ppls': ppls, 'runtime_sec': elapsed}
 
-    # --- Summary table ---
+    # Summary table
     col = 12
     header = (
         f'{"Method":<12} | '
@@ -126,7 +126,7 @@ def main():
     )
     sep = '-' * len(header)
 
-    print(f'\n=== OPT-125M Results vs Paper (Table 3 / 9 / 11) ===')
+    print(f'\nOPT-125M Results vs Paper (Table 3 / 9 / 11)')
     print(header)
     print(sep)
 

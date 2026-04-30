@@ -126,12 +126,12 @@ def main():
     parser.add_argument('--output', default='results_mixed.csv')
     args = parser.parse_args()
 
-    print('=== GPU status before benchmark ===')
+    print('GPU status before benchmark')
     nvidia_smi()
 
     # ── Step 1: Profiling pass ──────────────────────────────────────────────
     # Run GPTQ at 4-bit to capture per-layer quantization errors.
-    print('\n--- Profiling pass (wbits=4, capturing per-layer errors) ---')
+    print('\nProfiling pass (wbits=4, capturing per-layer errors)')
     stdout_prof, _, elapsed_prof = run_opt(
         args.model,
         ['--wbits', '4', '--nsamples', '128', '--seed', '0'],
@@ -156,7 +156,7 @@ def main():
     rows = []
 
     for ub in (LOW_BITS, HIGH_BITS):
-        print(f'\n--- Uniform {ub}-bit ---')
+        print(f'\nUniform {ub}-bit')
         stdout, _, elapsed = run_opt(
             args.model,
             ['--wbits', str(ub), '--nsamples', '128', '--seed', '0'],
@@ -185,7 +185,7 @@ def main():
         ab = avg_bits(bits_list)
         top_k_layers = sorted(idx for idx, _ in ranking[:K])
 
-        print(f'\n--- Mixed K={K} ({HIGH_BITS}-bit layers: {top_k_layers}, avg {ab:.2f} bits) ---')
+        print(f'\nMixed K={K} ({HIGH_BITS}-bit layers: {top_k_layers}, avg {ab:.2f} bits)')
         print(f'  layer_bits: {bits_str}')
 
         stdout, _, elapsed = run_opt(
@@ -210,7 +210,7 @@ def main():
     # ── Summary table ──────────────────────────────────────────────────────
     display = sorted(rows, key=lambda r: r['avg_bits_per_weight'])
 
-    print(f'\n=== Mixed-Precision Results ===')
+    print(f'\nMixed-Precision Results')
     print(f'Model: {args.model}')
     print(f'High={HIGH_BITS}-bit  Low={LOW_BITS}-bit  N_layers={N_LAYERS}')
     print(f'Δ wikitext2 = row PPL minus uniform {HIGH_BITS}-bit PPL')

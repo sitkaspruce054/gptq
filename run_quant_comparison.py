@@ -17,7 +17,7 @@ import time
 DATASETS = ['wikitext2', 'ptb', 'c4']
 
 # Methods that use calibration data (noted in output table)
-USES_CALIBRATION = {'gptq_4bit', 'awq_4bit', 'gptqmodel_gptq', 'gptqmodel_awq'}
+USES_CALIBRATION = {'gptq_4bit'}
 
 # Approximate avg bits (nominal, not exact for bnb)
 AVG_BITS_APPROX = {
@@ -37,14 +37,6 @@ def check_deps():
         import bitsandbytes  # noqa: F401
     except ImportError:
         missing.append('bitsandbytes')
-    try:
-        import awq  # noqa: F401
-    except ImportError:
-        missing.append('autoawq')
-    try:
-        import gptqmodel  # noqa: F401
-    except ImportError:
-        missing.append('gptqmodel')
     if missing:
         print(f'WARNING: missing optional deps: {missing}. Those methods will be skipped.')
     return missing
@@ -72,7 +64,7 @@ def parse_runner_output(stdout):
 
 
 def run_method(name, cmd):
-    print(f'\n--- {name} ---')
+    print(f'\n{name}')
     print(f'cmd: {" ".join(cmd)}')
     t0 = time.time()
     try:
@@ -119,28 +111,20 @@ def main():
         'gptq_4bit':      [sys.executable, 'bench_gptq.py',       '--model', args.model],
         'bnb_nf4':        [sys.executable, 'bench_bnb.py',        '--model', args.model, '--mode', 'nf4'],
         'bnb_int8':       [sys.executable, 'bench_bnb.py',        '--model', args.model, '--mode', 'int8'],
-        'awq_4bit':       [sys.executable, 'bench_awq.py',        '--model', args.model],
-        'gptqmodel_gptq': [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'gptq'],
-        'gptqmodel_awq':  [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'awq'],
-        'gptqmodel_rtn':  [sys.executable, 'bench_gptqmodel.py', '--model', args.model, '--method', 'rtn'],
     }
 
     # Skip methods whose deps are missing
     SKIP = set()
     if 'bitsandbytes' in missing_deps:
         SKIP.update({'bnb_nf4', 'bnb_int8'})
-    if 'autoawq' in missing_deps:
-        SKIP.add('awq_4bit')
-    if 'gptqmodel' in missing_deps:
-        SKIP.update({'gptqmodel_gptq', 'gptqmodel_awq', 'gptqmodel_rtn'})
 
-    print('=== GPU status before benchmark ===')
+    print('GPU status before benchmark')
     nvidia_smi()
 
     all_results = {}
     for name, cmd in METHODS.items():
         if name in SKIP:
-            print(f'\n--- {name} SKIPPED (dep missing) ---')
+            print(f'\n{name} SKIPPED (dep missing)')
             all_results[name] = {ds: 'skipped' for ds in DATASETS}
             all_results[name]['avg_bits'] = None
             all_results[name]['runtime_sec'] = None
@@ -156,7 +140,7 @@ def main():
         print(f'  wikitext2={w2}  ptb={ptb}  c4={c4}  time={rt}s')
         nvidia_smi()
 
-    # --- Summary table ---
+    # Summary table
     calib_note = '(+cal)'
     col_w = 13
     header = (
@@ -165,7 +149,7 @@ def main():
         f'{"c4 PPL":>{col_w}} | {"Runtime (s)":>{col_w}} | {"Peak mem (MB)":>{col_w}}'
     )
     sep = '-' * len(header)
-    print('\n=== Benchmark Results ===')
+    print('\nBenchmark Results')
     print(header)
     print(sep)
 
@@ -204,11 +188,9 @@ def main():
 
     print(sep)
     print('Note: bnb_nf4/bnb_int8 avg_bits are nominal (no calibration, ~approx).')
-    print('Note: gptq_4bit uses groupsize=-1 (full row); awq_4bit uses q_group_size=128.')
-    print('Note: gptqmodel_* methods use group_size=128 and require pip install -e ../GPTQModel.')
-    print('Note: gptqmodel_gptq uses act_group_aware=True (improved activation-order variant).')
+    print('Note: gptq_4bit uses groupsize=-1 (full row).')
 
-    # --- Write CSV ---
+    # Write CSV
     with open(args.output, 'w', newline='') as f:
         fieldnames = ['method', 'avg_bits', 'calibration', 'wikitext2_ppl', 'ptb_ppl', 'c4_ppl', 'runtime_sec', 'peak_memory_mb']
         writer = csv.DictWriter(f, fieldnames=fieldnames)

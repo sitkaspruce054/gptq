@@ -67,11 +67,11 @@ def main():
 
     rows = []
 
-    print('=== GPU status before sweep ===')
+    print('GPU status before sweep')
     nvidia_smi()
 
     for bs in SWEEP_VALUES:
-        print(f'\n--- blocksize={bs} ---')
+        print(f'\nblocksize={bs}')
         w2, ptb, c4, rt = run_opt(args.model, bs)
         rows.append({'blocksize': bs, 'wikitext2_ppl': w2, 'ptb_ppl': ptb, 'c4_ppl': c4, 'runtime_sec': f'{rt:.1f}'})
         print(f'  wikitext2={w2}  ptb={ptb}  c4={c4}  time={rt:.1f}s')
@@ -83,7 +83,7 @@ def main():
         writer.writerows(rows)
     print(f'\nResults written to {args.output}')
 
-    print('\n=== Summary ===')
+    print('\nSummary')
     print(f'{"blocksize":>10}  {"wikitext2":>10}  {"ptb":>10}  {"c4":>10}  {"time(s)":>8}')
     print('-' * 56)
     for r in rows:

@@ -68,12 +68,12 @@ def main():
     grid = [(wbits, mse) for wbits in [4, 3] for mse in [False, True]]
     rows = []
 
-    print('=== GPU status before experiment ===')
+    print('GPU status before experiment')
     nvidia_smi()
 
     for wbits, use_mse in grid:
         label = f'wbits={wbits} mse={use_mse}'
-        print(f'\n--- {label} ---')
+        print(f'\n{label}')
         w2, ptb, c4, rt = run_opt(args.model, wbits, use_mse)
         rows.append({
             'wbits': wbits,
@@ -93,7 +93,7 @@ def main():
     print(f'\nResults written to {args.output}')
 
     # 2x2 comparison table: delta from enabling MSE
-    print('\n=== 2x2 Comparison (wikitext2 perplexity) ===')
+    print('\n2x2 Comparison (wikitext2 perplexity)')
     print(f'{"":>10}  {"mse=False":>12}  {"mse=True":>12}  {"delta":>10}')
     print('-' * 50)
 
