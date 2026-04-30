@@ -21,6 +21,19 @@ log()  { echo -e "${GREEN}[run_all]${NC} $*"; }
 warn() { echo -e "${YELLOW}[ warn ]${NC} $*"; }
 fail() { echo -e "${RED}[ fail]${NC} $*"; }
 
+# Redirect HF caches off the home partition (10 GB quota on NOTS).
+# Done here, before any python invocation, so child processes inherit it.
+if [ -n "${SHARED_SCRATCH:-}" ]; then
+    : "${HF_HOME:=$SHARED_SCRATCH/hf_cache}"
+    : "${HF_DATASETS_CACHE:=$SHARED_SCRATCH/hf_cache/datasets}"
+    export HF_HOME HF_DATASETS_CACHE
+    mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE"
+    log "HF_HOME=$HF_HOME"
+    log "HF_DATASETS_CACHE=$HF_DATASETS_CACHE"
+else
+    warn "SHARED_SCRATCH not set — HF will use ~/.cache/huggingface (may hit quota)"
+fi
+
 # Sanity: venv active and torch importable
 if ! python -c "import torch" 2>/dev/null; then
     fail "torch not importable — activate the venv first:"
@@ -31,6 +44,19 @@ fi
 # Sanity: GPU visible (warning only — opt.py will fail without one anyway)
 if ! python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
     warn "CUDA not visible — opt.py requires a GPU. Are you on a compute node?"
+fi
+
+# Sanity: HF cache target is writable and not on a near-full filesystem
+if [ -n "${HF_HOME:-}" ]; then
+    if ! touch "$HF_HOME/.write_test" 2>/dev/null; then
+        fail "HF_HOME=$HF_HOME is not writable"
+        exit 1
+    fi
+    rm -f "$HF_HOME/.write_test"
+    AVAIL_KB=$(df -P "$HF_HOME" 2>/dev/null | awk 'NR==2 {print $4}')
+    if [ -n "$AVAIL_KB" ] && [ "$AVAIL_KB" -lt 1048576 ]; then
+        warn "HF_HOME has <1 GB free — model downloads may fail"
+    fi
 fi
 
 EXPERIMENTS=(
