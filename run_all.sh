@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_all.sh — run all 5 GPTQ experiments and emit CSVs.
+# run_all.sh - run all 5 GPTQ experiments and emit CSVs.
 #
 # Assumes setup.sh has been run and the venv is activated.
 # Each driver writes its CSV in the current directory.
@@ -17,12 +17,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
-log()  { echo -e "${GREEN}[run_all]${NC} $*"; }
+log() { echo -e "${GREEN}[run_all]${NC} $*"; }
 warn() { echo -e "${YELLOW}[ warn ]${NC} $*"; }
 fail() { echo -e "${RED}[ fail]${NC} $*"; }
 
-# Redirect HF caches off the home partition (10 GB quota on NOTS).
-# Done here, before any python invocation, so child processes inherit it.
+#needed for NOTS space
 if [ -n "${SHARED_SCRATCH:-}" ]; then
     : "${HF_HOME:=$SHARED_SCRATCH/hf_cache}"
     : "${HF_DATASETS_CACHE:=$SHARED_SCRATCH/hf_cache/datasets}"
@@ -31,19 +30,19 @@ if [ -n "${SHARED_SCRATCH:-}" ]; then
     log "HF_HOME=$HF_HOME"
     log "HF_DATASETS_CACHE=$HF_DATASETS_CACHE"
 else
-    warn "SHARED_SCRATCH not set — HF will use ~/.cache/huggingface (may hit quota)"
+    warn "SHARED_SCRATCH not set - HF will use ~/.cache/huggingface (may hit quota)"
 fi
 
-# Sanity: venv active and torch importable
+#checking imports
 if ! python -c "import torch" 2>/dev/null; then
-    fail "torch not importable — activate the venv first:"
+    fail "torch not importable - activate the venv first:"
     fail "  source \$SHARED_SCRATCH/gptq-env-311/bin/activate"
     exit 1
 fi
 
-# Sanity: GPU visible (warning only — opt.py will fail without one anyway)
+#make sure gpu is accessible
 if ! python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-    warn "CUDA not visible — opt.py requires a GPU. Are you on a compute node?"
+    warn "CUDA not visible"
 fi
 
 # Sanity: HF cache target is writable and not on a near-full filesystem
@@ -55,7 +54,7 @@ if [ -n "${HF_HOME:-}" ]; then
     rm -f "$HF_HOME/.write_test"
     AVAIL_KB=$(df -P "$HF_HOME" 2>/dev/null | awk 'NR==2 {print $4}')
     if [ -n "$AVAIL_KB" ] && [ "$AVAIL_KB" -lt 1048576 ]; then
-        warn "HF_HOME has <1 GB free — model downloads may fail"
+        warn "HF_HOME has <1 GB free - model downloads may fail"
     fi
 fi
 
@@ -71,13 +70,13 @@ T0=$(date +%s)
 for entry in "${EXPERIMENTS[@]}"; do
     IFS=':' read -r script csv desc <<< "$entry"
     log ""
-    log "[$desc]  python $script"
+    log "[$desc] python $script"
     t0=$(date +%s)
     python "$script"
     elapsed=$(( $(date +%s) - t0 ))
     if [ -f "$csv" ]; then
         rows=$(($(wc -l < "$csv") - 1))
-        log "  -> $csv ($rows result rows, ${elapsed}s)"
+        log " -> $csv ($rows result rows, ${elapsed}s)"
     else
         fail "$script did not produce $csv"
         exit 1

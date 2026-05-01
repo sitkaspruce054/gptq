@@ -1,16 +1,8 @@
-"""Reproduce the OPT-125M results from Table 3 (WikiText2) and Tables 9/11
-(PTB, C4) of the GPTQ paper (ICLR 2023).
+"""Reproduce the OPT-125M results from the paper.
 
 The paper states that GPTQ calibration uses 128 random 2048-token segments from
 the C4 dataset for all reported language-model perplexity results, so this
 script calibrates on C4 rather than WikiText2.
-
-Paper targets:
-    FP16:      wikitext2=27.65  ptb=38.99  c4=26.56
-    RTN  4bit: wikitext2=37.28  ptb=53.89  c4=33.91
-    GPTQ 4bit: wikitext2=31.12  ptb=45.17  c4=29.22
-    RTN  3bit: wikitext2=1.3e3  ptb=1.4e3  c4=834
-    GPTQ 3bit: wikitext2=53.85  ptb=73.19  c4=42.41
 
 Usage:
     python run_opt125m_results.py [--model facebook/opt-125m] [--output results_opt125m.csv]
@@ -28,10 +20,10 @@ DATASETS = ['wikitext2', 'ptb', 'c4']
 
 # Paper reference values from Tables 3, 9, 11
 PAPER_TARGETS = {
-    'fp16':      {'wikitext2': 27.65, 'ptb': 38.99, 'c4': 26.56},
-    'rtn_4bit':  {'wikitext2': 37.28, 'ptb': 53.89, 'c4': 33.91},
+    'fp16': {'wikitext2': 27.65, 'ptb': 38.99, 'c4': 26.56},
+    'rtn_4bit': {'wikitext2': 37.28, 'ptb': 53.89, 'c4': 33.91},
     'gptq_4bit': {'wikitext2': 31.12, 'ptb': 45.17, 'c4': 29.22},
-    'rtn_3bit':  {'wikitext2': 1300,  'ptb': 1400,  'c4': 834},
+    'rtn_3bit': {'wikitext2': 1300, 'ptb': 1400, 'c4': 834},
     'gptq_3bit': {'wikitext2': 53.85, 'ptb': 73.19, 'c4': 42.41},
 }
 
@@ -103,11 +95,11 @@ def main():
     args = parser.parse_args()
 
     configs = [
-        (16, False),   # fp16
-        (4,  True),    # rtn_4bit
-        (4,  False),   # gptq_4bit
-        (3,  True),    # rtn_3bit
-        (3,  False),   # gptq_3bit
+        (16, False),  # fp16
+        (4, True),  # rtn_4bit
+        (4, False),  # gptq_4bit
+        (3, True),  # rtn_3bit
+        (3, False),  # gptq_3bit
     ]
 
     all_results = {}
@@ -136,11 +128,11 @@ def main():
         rt = data['runtime_sec']
         targets = PAPER_TARGETS.get(label, {})
 
-        w2     = fmt_ppl(ppls.get('wikitext2'))
+        w2 = fmt_ppl(ppls.get('wikitext2'))
         w2_ref = fmt_ppl(targets.get('wikitext2'))
-        ptb    = fmt_ppl(ppls.get('ptb'))
+        ptb = fmt_ppl(ppls.get('ptb'))
         ptb_ref = fmt_ppl(targets.get('ptb'))
-        c4     = fmt_ppl(ppls.get('c4'))
+        c4 = fmt_ppl(ppls.get('c4'))
         c4_ref = fmt_ppl(targets.get('c4'))
 
         print(

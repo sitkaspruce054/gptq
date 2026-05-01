@@ -17,7 +17,7 @@ import sys
 import time
 
 MODEL_DEFAULT = 'facebook/opt-125m'
-N_LAYERS = 12       # opt-125m has 12 decoder layers
+N_LAYERS = 12  # opt-125m has 12 decoder layers
 HIGH_BITS = 4
 LOW_BITS = 3
 SWEEP_K = [3, 6, 9]  # mixed-precision points; 0 and 12 are the uniform baselines
@@ -129,7 +129,7 @@ def main():
     print('GPU status before benchmark')
     nvidia_smi()
 
-    # ── Step 1: Profiling pass ──────────────────────────────────────────────
+    # ---- Step 1: Profiling pass ----
     # Run GPTQ at 4-bit to capture per-layer quantization errors.
     print('\nProfiling pass (wbits=4, capturing per-layer errors)')
     stdout_prof, _, elapsed_prof = run_opt(
@@ -152,7 +152,7 @@ def main():
     for layer_idx, err in ranking:
         print(f'  {layer_idx:>6}  {err:>14.2f}')
 
-    # ── Step 2: Uniform baselines ───────────────────────────────────────────
+    # ---- Step 2: Uniform baselines ----
     rows = []
 
     for ub in (LOW_BITS, HIGH_BITS):
@@ -178,7 +178,7 @@ def main():
 
     uniform_4bit_ppl = next(r['wikitext2_ppl'] for r in rows if r['run_type'] == 'uniform_4bit')
 
-    # ── Step 3: Mixed-precision sweep ──────────────────────────────────────
+    # ---- Step 3: Mixed-precision sweep ----
     for K in SWEEP_K:
         bits_list = build_layer_bits(ranking, K)
         bits_str = ','.join(str(b) for b in bits_list)
@@ -207,13 +207,13 @@ def main():
         print(f'  wikitext2={fmt(ppls.get("wikitext2"))}  ptb={fmt(ppls.get("ptb"))}  c4={fmt(ppls.get("c4"))}  time={elapsed:.1f}s')
         nvidia_smi()
 
-    # ── Summary table ──────────────────────────────────────────────────────
+    # ---- Summary table ----
     display = sorted(rows, key=lambda r: r['avg_bits_per_weight'])
 
     print(f'\nMixed-Precision Results')
     print(f'Model: {args.model}')
-    print(f'High={HIGH_BITS}-bit  Low={LOW_BITS}-bit  N_layers={N_LAYERS}')
-    print(f'Δ wikitext2 = row PPL minus uniform {HIGH_BITS}-bit PPL')
+    print(f'High={HIGH_BITS}-bit Low={LOW_BITS}-bit N_layers={N_LAYERS}')
+    print(f'delta wikitext2 = row PPL minus uniform {HIGH_BITS}-bit PPL')
     print(f'Note: avg_bits is exact for opt-125m (all decoder layers have equal parameter count)')
     print()
 
@@ -221,7 +221,7 @@ def main():
     header = (
         f'{"Run":<16} | {"K":>3} | {"Avg bits":>8} | '
         f'{"wikitext2":>{col}} | {"ptb":>{col}} | {"c4":>{col}} | '
-        f'{"Δ wiki":>8} | {"Time(s)":>7}'
+        f'{"d wiki":>8} | {"Time(s)":>7}'
     )
     sep = '-' * len(header)
     print(header)
@@ -240,7 +240,7 @@ def main():
         )
     print(sep)
 
-    # ── Write CSV ──────────────────────────────────────────────────────────
+    # ---- Write CSV ----
     fields = ['run_type', 'k_sensitive', 'layer_bits', 'avg_bits_per_weight',
               'wikitext2_ppl', 'ptb_ppl', 'c4_ppl', 'runtime_sec']
     with open(args.output, 'w', newline='') as f:

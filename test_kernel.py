@@ -22,7 +22,7 @@ COUNT = 1000
 import time
 tick = time.time()
 for _ in range(COUNT):
-    torch.matmul(vec, mat, out=mul) 
+    torch.matmul(vec, mat, out=mul)
     torch.cuda.synchronize()
 print('FP16:', (time.time() - tick) / COUNT)
 

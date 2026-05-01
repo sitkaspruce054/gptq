@@ -92,7 +92,7 @@ def main():
         writer.writerows(rows)
     print(f'\nResults written to {args.output}')
 
-    # 2x2 comparison table: delta from enabling MSE
+    #tweaking MSE
     print('\n2x2 Comparison (wikitext2 perplexity)')
     print(f'{"":>10}  {"mse=False":>12}  {"mse=True":>12}  {"delta":>10}')
     print('-' * 50)
